@@ -37,6 +37,7 @@ export default async function QuotesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>N°</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Devis</TableHead>
                 <TableHead>Montant</TableHead>
@@ -49,13 +50,14 @@ export default async function QuotesPage() {
             <TableBody>
               {quotes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                     Aucun devis. Crée-en un depuis la fiche d&apos;un client.
                   </TableCell>
                 </TableRow>
               ) : (
                 quotes.map((quote) => (
                   <TableRow key={quote.id}>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">{quote.number}</TableCell>
                     <TableCell>
                       <Link href={`/clients/${quote.client.id}`} className="font-medium hover:underline">
                         {quote.client.companyName}

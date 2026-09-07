@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     ...data.alerts.overdueInvoices.map((invoice) => ({
       id: `invoice-${invoice.id}`,
       severity: "red" as const,
-      title: `Facture en retard — ${formatCurrency(invoice.amount)}`,
+      title: `Facture ${invoice.number} en retard — ${formatCurrency(invoice.remaining)} à encaisser`,
       subtitle: invoice.client.companyName,
       href: `/clients/${invoice.clientId}`,
     })),

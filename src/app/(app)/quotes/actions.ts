@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireStaff } from "@/lib/session";
+import { allocateDocumentNumber } from "@/lib/numbering";
+import { DocumentKind } from "@/generated/prisma/enums";
 import { quoteSchema } from "@/lib/validation/quote";
 import { lineItemsSchema, computeLineItemsTotal } from "@/lib/validation/line-items";
 
@@ -35,18 +37,23 @@ export async function createQuoteAction(_prevState: string | undefined, formData
     if (!lineItemsResult.success) return lineItemsResult.error.issues[0]?.message ?? "Lignes invalides.";
     const lineItems = lineItemsResult.data;
 
-    await prisma.quote.create({
-      data: {
-        organizationId: user.organizationId,
-        clientId,
-        title: data.title,
-        amount: computeLineItemsTotal(lineItems),
-        status: data.status,
-        issueDate: toDate(data.issueDate) ?? new Date(),
-        validUntil: toDate(data.validUntil ?? ""),
-        notes: data.notes || null,
-        lineItems: { create: lineItems.map((item, index) => ({ position: index, ...item })) },
-      },
+    const issueDate = toDate(data.issueDate) ?? new Date();
+    await prisma.$transaction(async (tx) => {
+      const number = await allocateDocumentNumber(tx, user.organizationId, DocumentKind.QUOTE, issueDate);
+      await tx.quote.create({
+        data: {
+          organizationId: user.organizationId,
+          clientId,
+          number,
+          title: data.title,
+          amount: computeLineItemsTotal(lineItems),
+          status: data.status,
+          issueDate,
+          validUntil: toDate(data.validUntil ?? ""),
+          notes: data.notes || null,
+          lineItems: { create: lineItems.map((item, index) => ({ position: index, ...item })) },
+        },
+      });
     });
   } catch (error) {
     if (error instanceof z.ZodError) {

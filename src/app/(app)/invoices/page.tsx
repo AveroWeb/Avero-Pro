@@ -48,8 +48,11 @@ export default async function InvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>N°</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Montant</TableHead>
+                <TableHead>Réglé</TableHead>
+                <TableHead>Reste dû</TableHead>
                 <TableHead>Émission</TableHead>
                 <TableHead>Échéance</TableHead>
                 <TableHead>Statut</TableHead>
@@ -59,34 +62,43 @@ export default async function InvoicesPage() {
             <TableBody>
               {invoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     Aucune facture. Crée-en une depuis un devis accepté, ou manuellement dans la fiche d&apos;un client.
                   </TableCell>
                 </TableRow>
               ) : (
                 invoices.map((invoice) => (
                   <TableRow key={invoice.id}>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">{invoice.number}</TableCell>
                     <TableCell>
                       <Link href={`/clients/${invoice.client.id}`} className="font-medium hover:underline">
                         {invoice.client.companyName}
                       </Link>
                     </TableCell>
                     <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {invoice.paidAmount > 0 ? formatCurrency(invoice.paidAmount) : "—"}
+                    </TableCell>
+                    <TableCell className={invoice.remaining > 0 && invoice.isOverdue ? "font-medium text-red-600 dark:text-red-400" : undefined}>
+                      {invoice.remaining > 0 ? formatCurrency(invoice.remaining) : "—"}
+                    </TableCell>
                     <TableCell>{formatDate(invoice.issueDate)}</TableCell>
                     <TableCell className={invoice.isOverdue ? "font-medium text-red-600 dark:text-red-400" : undefined}>
                       {formatDate(invoice.dueDate)}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge meta={invoice.isOverdue ? invoiceStatusMeta.OVERDUE : invoiceStatusMeta[invoice.status]} />
+                      <StatusBadge meta={invoiceStatusMeta[invoice.effectiveStatus] ?? invoiceStatusMeta[invoice.status]} />
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {(invoice.status === "UNPAID" || invoice.status === "OVERDUE") && (
-                          <MarkDoneButton
-                            action={markInvoicePaidAction.bind(null, invoice.client.id, invoice.id)}
-                            title="Marquer comme payée"
-                          />
-                        )}
+                        {invoice.remaining > 0 &&
+                          invoice.effectiveStatus !== "CREDITED" &&
+                          invoice.effectiveStatus !== "CANCELLED" && (
+                            <MarkDoneButton
+                              action={markInvoicePaidAction.bind(null, invoice.client.id, invoice.id)}
+                              title="Solder la facture"
+                            />
+                          )}
                         <Button
                           variant="ghost"
                           size="icon-sm"

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineItemsEditor, type LineItemDraft } from "@/components/line-items-editor";
+import type { CatalogOption } from "@/lib/queries/catalog";
 import { saveQuoteAction } from "./actions";
 
 const STATUS_ITEMS = [
@@ -35,12 +36,14 @@ export function QuoteDialog({
   clientId,
   vatEnabled,
   vatRate,
+  catalog,
   quote,
 }: {
   trigger: ReactNode;
   clientId: string;
   vatEnabled: boolean;
   vatRate: number;
+  catalog: CatalogOption[];
   quote?: {
     id: string;
     title: string;
@@ -122,7 +125,7 @@ export function QuoteDialog({
               <Input id="quote-validUntil" name="validUntil" type="date" defaultValue={toDateInputValue(quote?.validUntil)} />
             </div>
 
-            <LineItemsEditor initialItems={initialItems} vatEnabled={vatEnabled} vatRate={vatRate} />
+            <LineItemsEditor initialItems={initialItems} vatEnabled={vatEnabled} vatRate={vatRate} catalog={catalog} />
 
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="quote-notes">Notes</Label>

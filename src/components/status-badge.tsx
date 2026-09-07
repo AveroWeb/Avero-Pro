@@ -47,8 +47,10 @@ export const quoteStatusMeta: Record<string, BadgeMeta> = {
 
 export const invoiceStatusMeta: Record<string, BadgeMeta> = {
   PAID: { label: "Payée", className: emerald },
+  PARTIAL: { label: "Partielle", className: blue },
   UNPAID: { label: "Impayée", className: amber },
   OVERDUE: { label: "En retard", className: red },
+  CREDITED: { label: "Avoir émis", className: violet },
   CANCELLED: { label: "Annulée", className: zinc },
 };
 

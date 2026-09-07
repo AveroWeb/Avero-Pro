@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { Fragment, useTransition } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -11,26 +11,30 @@ import {
   History,
   ArrowRightCircle,
   FileDown,
+  Coins,
+  Undo2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { DeleteIconButton } from "@/components/delete-icon-button";
 import { MarkDoneButton } from "@/components/mark-done-button";
-import {
-  StatusBadge,
-  invoiceStatusMeta,
-  quoteStatusMeta,
-} from "@/components/status-badge";
+import { StatusBadge, invoiceStatusMeta, quoteStatusMeta } from "@/components/status-badge";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { computeInvoicePaymentState, effectiveInvoiceStatus, PAYMENT_METHOD_LABELS } from "@/lib/payments";
 import type { SerializedClientDetail } from "@/lib/serialize-client";
+import type { CatalogOption } from "@/lib/queries/catalog";
 import { InvoiceDialog } from "./invoice-dialog";
 import { QuoteDialog } from "./quote-dialog";
+import { PaymentDialog } from "./payment-dialog";
+import { CreditNoteDialog } from "./credit-note-dialog";
 import {
   deleteInvoiceAction,
   markInvoicePaidAction,
   deleteQuoteAction,
   convertQuoteToInvoiceAction,
+  deletePaymentAction,
+  deleteCreditNoteAction,
 } from "./actions";
 
 type Financials = { totalInvoiced: number; totalPaid: number; totalUnpaid: number };
@@ -40,17 +44,20 @@ export function ClientDetailTabs({
   financials,
   vatEnabled,
   vatRate,
+  catalog,
 }: {
   client: SerializedClientDetail;
   financials: Financials;
   vatEnabled: boolean;
   vatRate: number;
+  catalog: CatalogOption[];
 }) {
   return (
     <Tabs defaultValue="quotes" className="gap-4">
       <TabsList className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="quotes"><FileSignature className="size-4" /> Devis ({client.quotes.length})</TabsTrigger>
         <TabsTrigger value="invoices"><Receipt className="size-4" /> Factures ({client.invoices.length})</TabsTrigger>
+        <TabsTrigger value="credit-notes"><Undo2 className="size-4" /> Avoirs ({client.creditNotes.length})</TabsTrigger>
         <TabsTrigger value="notes"><StickyNote className="size-4" /> Notes</TabsTrigger>
         <TabsTrigger value="history"><History className="size-4" /> Historique</TabsTrigger>
       </TabsList>
@@ -61,6 +68,7 @@ export function ClientDetailTabs({
             clientId={client.id}
             vatEnabled={vatEnabled}
             vatRate={vatRate}
+            catalog={catalog}
             trigger={
               <Button size="sm">
                 <Plus /> Nouveau devis
@@ -71,6 +79,7 @@ export function ClientDetailTabs({
         <EmptyableTable empty={client.quotes.length === 0} message="Aucun devis pour ce client.">
           <TableHeader>
             <TableRow>
+              <TableHead>N°</TableHead>
               <TableHead>Devis</TableHead>
               <TableHead>Montant</TableHead>
               <TableHead>Émission</TableHead>
@@ -82,6 +91,7 @@ export function ClientDetailTabs({
           <TableBody>
             {client.quotes.map((quote) => (
               <TableRow key={quote.id}>
+                <TableCell className="font-mono text-xs whitespace-nowrap">{quote.number}</TableCell>
                 <TableCell className="font-medium">{quote.title}</TableCell>
                 <TableCell>{formatCurrency(quote.amount)}</TableCell>
                 <TableCell>{formatDate(quote.issueDate)}</TableCell>
@@ -105,6 +115,7 @@ export function ClientDetailTabs({
                       clientId={client.id}
                       vatEnabled={vatEnabled}
                       vatRate={vatRate}
+                      catalog={catalog}
                       quote={quote}
                       trigger={
                         <Button variant="ghost" size="icon-sm">
@@ -130,6 +141,7 @@ export function ClientDetailTabs({
             clientId={client.id}
             vatEnabled={vatEnabled}
             vatRate={vatRate}
+            catalog={catalog}
             trigger={
               <Button size="sm">
                 <Plus /> Nouvelle facture
@@ -140,51 +152,192 @@ export function ClientDetailTabs({
         <EmptyableTable empty={client.invoices.length === 0} message="Aucune facture pour ce client.">
           <TableHeader>
             <TableRow>
+              <TableHead>N°</TableHead>
               <TableHead>Montant</TableHead>
-              <TableHead>Émission</TableHead>
+              <TableHead>Réglé</TableHead>
+              <TableHead>Reste dû</TableHead>
               <TableHead>Échéance</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead className="w-28" />
+              <TableHead className="w-36" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {client.invoices.map((invoice) => (
-              <TableRow key={invoice.id}>
-                <TableCell className="font-medium">{formatCurrency(invoice.amount)}</TableCell>
-                <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-                <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                <TableCell><StatusBadge meta={invoiceStatusMeta[invoice.status]} /></TableCell>
+            {client.invoices.map((invoice) => {
+              const state = computeInvoicePaymentState(invoice);
+              const effective = effectiveInvoiceStatus(invoice);
+              const canSettle = state.remaining > 0 && effective !== "CREDITED" && effective !== "CANCELLED";
+              const detailRows = [
+                ...invoice.payments.map((payment) => ({
+                  key: `p-${payment.id}`,
+                  date: payment.receivedAt,
+                  label: `Paiement ${PAYMENT_METHOD_LABELS[payment.method] ?? payment.method} — ${formatCurrency(payment.amount)}`,
+                  note: payment.note,
+                  action: (
+                    <DeleteIconButton
+                      action={deletePaymentAction.bind(null, client.id, payment.id)}
+                      confirmMessage="Supprimer ce paiement ?"
+                    />
+                  ),
+                })),
+                ...invoice.creditNotes.map((creditNote) => ({
+                  key: `c-${creditNote.id}`,
+                  date: creditNote.issueDate,
+                  label: `Avoir ${creditNote.number} — − ${formatCurrency(creditNote.amount)}`,
+                  note: creditNote.reason,
+                  action: (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        title="PDF de l'avoir"
+                        render={<Link href={`/print/credit-notes/${creditNote.id}`} target="_blank" />}
+                        nativeButton={false}
+                      >
+                        <FileDown className="size-4" />
+                      </Button>
+                      <DeleteIconButton
+                        action={deleteCreditNoteAction.bind(null, client.id, creditNote.id)}
+                        confirmMessage="Supprimer cet avoir ?"
+                      />
+                    </div>
+                  ),
+                })),
+              ];
+
+              return (
+                <Fragment key={invoice.id}>
+                  <TableRow>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">{invoice.number}</TableCell>
+                    <TableCell className="font-medium">{formatCurrency(invoice.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {state.paid > 0 ? formatCurrency(state.paid) : "—"}
+                    </TableCell>
+                    <TableCell className={state.isOverdue ? "font-medium text-red-600 dark:text-red-400" : undefined}>
+                      {state.remaining > 0 ? formatCurrency(state.remaining) : "—"}
+                    </TableCell>
+                    <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                    <TableCell>
+                      <StatusBadge meta={invoiceStatusMeta[effective] ?? invoiceStatusMeta[invoice.status]} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {canSettle && (
+                          <>
+                            <PaymentDialog
+                              clientId={client.id}
+                              invoiceId={invoice.id}
+                              invoiceNumber={invoice.number}
+                              remaining={state.remaining}
+                              trigger={
+                                <Button variant="ghost" size="icon-sm" title="Enregistrer un paiement">
+                                  <Coins className="size-4" />
+                                </Button>
+                              }
+                            />
+                            <MarkDoneButton
+                              action={markInvoicePaidAction.bind(null, client.id, invoice.id)}
+                              title="Solder la facture"
+                            />
+                          </>
+                        )}
+                        {effective !== "CANCELLED" && (
+                          <CreditNoteDialog
+                            clientId={client.id}
+                            invoice={invoice}
+                            vatEnabled={vatEnabled}
+                            vatRate={vatRate}
+                            trigger={
+                              <Button variant="ghost" size="icon-sm" title="Émettre un avoir">
+                                <Undo2 className="size-4" />
+                              </Button>
+                            }
+                          />
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Télécharger le PDF"
+                          render={<Link href={`/print/invoices/${invoice.id}`} target="_blank" />}
+                          nativeButton={false}
+                        >
+                          <FileDown className="size-4" />
+                        </Button>
+                        <InvoiceDialog
+                          clientId={client.id}
+                          vatEnabled={vatEnabled}
+                          vatRate={vatRate}
+                          catalog={catalog}
+                          invoice={invoice}
+                          trigger={
+                            <Button variant="ghost" size="icon-sm">
+                              <Pencil className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DeleteIconButton
+                          action={deleteInvoiceAction.bind(null, client.id, invoice.id)}
+                          confirmMessage="Supprimer cette facture ?"
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {detailRows.length > 0 && (
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={7} className="bg-muted/30 py-2">
+                        <div className="flex flex-col gap-1 text-xs">
+                          {detailRows.map((row) => (
+                            <div key={row.key} className="flex items-center gap-2">
+                              <span className="text-muted-foreground whitespace-nowrap">{formatDate(row.date)}</span>
+                              <span>{row.label}</span>
+                              {row.note ? <span className="text-muted-foreground">· {row.note}</span> : null}
+                              <span className="ml-auto">{row.action}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </EmptyableTable>
+      </TabsContent>
+
+      <TabsContent value="credit-notes">
+        <EmptyableTable empty={client.creditNotes.length === 0} message="Aucun avoir pour ce client.">
+          <TableHeader>
+            <TableRow>
+              <TableHead>N°</TableHead>
+              <TableHead>Facture</TableHead>
+              <TableHead>Motif</TableHead>
+              <TableHead>Montant</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead className="w-20" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {client.creditNotes.map((creditNote) => (
+              <TableRow key={creditNote.id}>
+                <TableCell className="font-mono text-xs whitespace-nowrap">{creditNote.number}</TableCell>
+                <TableCell className="font-mono text-xs">{creditNote.invoice?.number ?? "—"}</TableCell>
+                <TableCell className="max-w-[16rem] truncate text-muted-foreground">{creditNote.reason ?? "—"}</TableCell>
+                <TableCell className="text-red-600 dark:text-red-400">− {formatCurrency(creditNote.amount)}</TableCell>
+                <TableCell>{formatDate(creditNote.issueDate)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    {invoice.status === "UNPAID" || invoice.status === "OVERDUE" ? (
-                      <MarkDoneButton
-                        action={markInvoicePaidAction.bind(null, client.id, invoice.id)}
-                        title="Marquer comme payée"
-                      />
-                    ) : null}
                     <Button
                       variant="ghost"
                       size="icon-sm"
                       title="Télécharger le PDF"
-                      render={<Link href={`/print/invoices/${invoice.id}`} target="_blank" />}
+                      render={<Link href={`/print/credit-notes/${creditNote.id}`} target="_blank" />}
                       nativeButton={false}
                     >
                       <FileDown className="size-4" />
                     </Button>
-                    <InvoiceDialog
-                      clientId={client.id}
-                      vatEnabled={vatEnabled}
-                      vatRate={vatRate}
-                      invoice={invoice}
-                      trigger={
-                        <Button variant="ghost" size="icon-sm">
-                          <Pencil className="size-4" />
-                        </Button>
-                      }
-                    />
                     <DeleteIconButton
-                      action={deleteInvoiceAction.bind(null, client.id, invoice.id)}
-                      confirmMessage="Supprimer cette facture ?"
+                      action={deleteCreditNoteAction.bind(null, client.id, creditNote.id)}
+                      confirmMessage="Supprimer cet avoir ?"
                     />
                   </div>
                 </TableCell>

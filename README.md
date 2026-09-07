@@ -64,12 +64,18 @@ npx prisma studio    # explorateur de données
 - ✅ **Présence en ligne** : mon site (statut, URL), ma fiche Google (note, avis), avis clients (ajout + réponse).
 - ✅ **Clients (CRM simple)** : carnet client, statut, notes, historique.
 - ✅ **Devis & factures** : création, lignes, TVA, export PDF, conversion devis → facture.
-- ✅ **Dashboard** : clients actifs, devis en attente, factures impayées, note Google, avis sans réponse.
-- ✅ **Paramètres** : informations de facturation (SIRET, TVA, IBAN...), membres de l'équipe.
+- ✅ **Numérotation légale** : séquence continue par entreprise, type et année (`FAC-2026-0001`, `DEV-2026-0001`, `AV-2026-0001`).
+- ✅ **Mentions légales** : pénalités de retard, indemnité forfaitaire de recouvrement, escompte, forme juridique — reprises en pied de page des PDF.
+- ✅ **Avoirs** : émission d'un avoir (total ou partiel) rattaché à une facture, avec son propre PDF.
+- ✅ **Encaissements** : paiements multiples par facture (règlements partiels), reste dû et statut `Partielle` calculés automatiquement.
+- ✅ **Catalogue** : produits et prestations réutilisables, insérables en un clic dans un devis ou une facture.
+- ✅ **Dashboard** : clients actifs, devis en attente, reste à encaisser, note Google, avis sans réponse.
+- ✅ **Paramètres** : informations de facturation (SIRET, TVA, IBAN, mentions légales...), membres de l'équipe.
 
 ## Pistes pour la suite
 
 - Récupération automatique de la fiche Google Business Profile et des avis (au lieu d'une saisie manuelle).
 - Générateur de site vitrine intégré plutôt qu'un simple lien externe.
-- Rappels automatiques (factures en retard, devis qui expirent, avis sans réponse) par email.
+- Envoi par email des relances / devis / factures (aujourd'hui : suivi in-app uniquement).
+- Facture électronique (Factur-X) et export comptable.
 - Abonnement payant à Avero Pro lui-même (aujourd'hui hors périmètre V1).

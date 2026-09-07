@@ -41,14 +41,27 @@ model Organization {
   vatEnabled   Boolean @default(true)
   vatRate      Decimal @default(20) @db.Decimal(5, 2)
 
-  users         User[]
-  clients       Client[]
-  sites         Site[]
-  googleListing GoogleListing?
-  reviews       Review[]
-  invoices      Invoice[]
-  quotes        Quote[]
-  activityLogs  ActivityLog[]
+  // Mandatory legal mentions on invoices / quotes (French Code de commerce).
+  legalForm         String? // e.g. "SARL", "SAS", "EI / auto-entrepreneur"
+  shareCapital      String? // capital social, free text (e.g. "10 000 €")
+  rcsCity           String? // ville du greffe (RCS)
+  latePenaltyText   String? @db.Text // taux des pénalités de retard
+  recoveryIndemnity Decimal @default(40) @db.Decimal(10, 2) // indemnité forfaitaire frais de recouvrement
+  discountTerms     String? @db.Text // conditions d'escompte
+  quoteValidityDays Int     @default(30) // durée de validité par défaut d'un devis
+
+  users           User[]
+  clients         Client[]
+  sites           Site[]
+  googleListing   GoogleListing?
+  reviews         Review[]
+  invoices        Invoice[]
+  quotes          Quote[]
+  activityLogs    ActivityLog[]
+  creditNotes     CreditNote[]
+  payments        Payment[]
+  catalogItems    CatalogItem[]
+  numberSequences NumberSequence[]
 }
 
 model User {
@@ -97,6 +110,7 @@ model Client {
 
   invoices     Invoice[]
   quotes       Quote[]
+  creditNotes  CreditNote[]
   activityLogs ActivityLog[]
 
   @@index([organizationId])
@@ -179,9 +193,11 @@ model Review {
 
 enum InvoiceStatus {
   PAID
+  PARTIAL // partiellement réglée (voir Payment[])
   UNPAID
   OVERDUE
-  CANCELLED
+  CREDITED // soldée par un ou plusieurs avoirs
+  CANCELLED // legacy — ne plus proposer, émettre un avoir à la place
 }
 
 model Invoice {
@@ -193,6 +209,7 @@ model Invoice {
   quoteId        String?      @unique
   quote          Quote?       @relation(fields: [quoteId], references: [id], onDelete: SetNull)
 
+  number    String // numérotation légale continue, ex. "FAC-2026-0001"
   title     String?
   amount    Decimal       @db.Decimal(10, 2)
   status    InvoiceStatus @default(UNPAID)
@@ -201,11 +218,14 @@ model Invoice {
   paidAt    DateTime?
   notes     String?       @db.Text
 
-  lineItems InvoiceLineItem[]
+  lineItems   InvoiceLineItem[]
+  payments    Payment[]
+  creditNotes CreditNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, number])
   @@index([organizationId])
   @@index([clientId])
   @@index([status])
@@ -242,6 +262,7 @@ model Quote {
   clientId       String
   client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  number      String // numérotation continue, ex. "DEV-2026-0001"
   title       String
   description String?     @db.Text
   amount      Decimal     @db.Decimal(10, 2)
@@ -256,6 +277,7 @@ model Quote {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, number])
   @@index([organizationId])
   @@index([clientId])
   @@index([status])
@@ -283,6 +305,7 @@ enum ActivityType {
   QUOTE_ACCEPTED
   INVOICE_CREATED
   PAYMENT_RECEIVED
+  CREDIT_NOTE_ISSUED
   REVIEW_RECEIVED
   NOTE
   OTHER
@@ -304,4 +327,121 @@ model ActivityLog {
   @@index([organizationId])
   @@index([clientId])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Numérotation légale — une séquence continue par organisation, type et année
+// ---------------------------------------------------------------------------
+
+enum DocumentKind {
+  QUOTE
+  INVOICE
+  CREDIT_NOTE
+}
+
+model NumberSequence {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  kind      DocumentKind
+  year      Int
+  lastValue Int          @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, kind, year])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Avoirs (notes de crédit) — rattachés à une facture émise
+// ---------------------------------------------------------------------------
+
+model CreditNote {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  invoice        Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  number    String // ex. "AV-2026-0001"
+  reason    String?  @db.Text
+  amount    Decimal  @db.Decimal(10, 2) // montant crédité, positif
+  issueDate DateTime @default(now())
+
+  lineItems CreditNoteLineItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([clientId])
+}
+
+model CreditNoteLineItem {
+  id           String     @id @default(cuid())
+  creditNoteId String
+  creditNote   CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  description  String
+  quantity     Decimal    @default(1) @db.Decimal(10, 2)
+  unitPrice    Decimal    @db.Decimal(10, 2)
+  position     Int        @default(0)
+
+  @@index([creditNoteId])
+}
+
+// ---------------------------------------------------------------------------
+// Encaissements — un ou plusieurs paiements par facture (règlements partiels)
+// ---------------------------------------------------------------------------
+
+enum PaymentMethod {
+  TRANSFER
+  CARD
+  CASH
+  CHECK
+  OTHER
+}
+
+model Payment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  invoice        Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount     Decimal       @db.Decimal(10, 2)
+  method     PaymentMethod @default(TRANSFER)
+  receivedAt DateTime      @default(now())
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue produits & prestations — lignes réutilisables dans devis/factures
+// ---------------------------------------------------------------------------
+
+model CatalogItem {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  label       String
+  description String? @db.Text
+  unitPrice   Decimal @db.Decimal(10, 2)
+  unit        String? // "h", "jour", "forfait", "u"…
+  active      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }

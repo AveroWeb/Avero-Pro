@@ -28,6 +28,9 @@ async function main() {
       siret: "123 456 789 00012",
       phone: "+33 5 65 12 34 56",
       contactEmail: adminEmail,
+      legalForm: "EI / auto-entrepreneur",
+      latePenaltyText: "taux légal en vigueur (BCE + 10 points)",
+      discountTerms: "Pas d'escompte pour paiement anticipé.",
     },
   });
 
@@ -135,11 +138,24 @@ async function main() {
     ],
   });
 
+  // --- Catalogue produits & prestations ------------------------------------
+  await prisma.catalogItem.createMany({
+    data: [
+      { organizationId: org.id, label: "Baguette tradition", unitPrice: 1.2, unit: "u" },
+      { organizationId: org.id, label: "Livraison quotidienne de pain (mois)", unitPrice: 320, unit: "forfait" },
+      { organizationId: org.id, label: "Plateau de viennoiseries (50 pers.)", unitPrice: 180, unit: "forfait" },
+      { organizationId: org.id, label: "Gâteau personnalisé", unitPrice: 45, unit: "u" },
+    ],
+  });
+
   // --- Devis & factures -------------------------------------------------------
+  const seedYear = new Date().getFullYear();
+
   const quote = await prisma.quote.create({
     data: {
       organizationId: org.id,
       clientId: atelier.id,
+      number: `DEV-${seedYear}-0001`,
       title: "Livraison hebdomadaire de viennoiseries",
       status: "SENT",
       issueDate: daysAgo(5),
@@ -155,14 +171,18 @@ async function main() {
     data: {
       organizationId: org.id,
       clientId: dupont.id,
+      number: `FAC-${seedYear}-0001`,
       title: "Commande de pain — janvier",
-      status: "UNPAID",
+      status: "PARTIAL",
       issueDate: daysAgo(20),
       dueDate: daysAgo(-10),
       lineItems: {
         create: [{ description: "Pains et baguettes, livraison quotidienne", quantity: 1, unitPrice: 320, position: 0 }],
       },
       amount: 320,
+      payments: {
+        create: [{ organizationId: org.id, amount: 120, method: "TRANSFER", receivedAt: daysAgo(8) }],
+      },
     },
   });
 
@@ -170,6 +190,7 @@ async function main() {
     data: {
       organizationId: org.id,
       clientId: mairie.id,
+      number: `FAC-${seedYear}-0002`,
       title: "Viennoiseries — réception municipale",
       status: "PAID",
       issueDate: daysAgo(45),
@@ -179,7 +200,18 @@ async function main() {
         create: [{ description: "Plateau de viennoiseries (50 pers.)", quantity: 1, unitPrice: 180, position: 0 }],
       },
       amount: 180,
+      payments: {
+        create: [{ organizationId: org.id, amount: 180, method: "CHECK", receivedAt: daysAgo(32) }],
+      },
     },
+  });
+
+  // Keep the number sequences in step with the seeded documents.
+  await prisma.numberSequence.createMany({
+    data: [
+      { organizationId: org.id, kind: "INVOICE", year: seedYear, lastValue: 2 },
+      { organizationId: org.id, kind: "QUOTE", year: seedYear, lastValue: 1 },
+    ],
   });
 
   // --- Activity log (client history) --------------------------------------

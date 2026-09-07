@@ -10,6 +10,8 @@ import {
   Building2,
   Receipt,
   FileSignature,
+  Undo2,
+  Package,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -30,8 +32,10 @@ const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/presence", label: "Présence en ligne", icon: Globe },
+  { href: "/catalog", label: "Catalogue", icon: Package },
   { href: "/quotes", label: "Devis", icon: FileSignature },
   { href: "/invoices", label: "Factures", icon: Receipt },
+  { href: "/credit-notes", label: "Avoirs", icon: Undo2 },
 ];
 
 export function AppSidebar({ orgName }: { orgName: string }) {

@@ -15,13 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineItemsEditor, type LineItemDraft } from "@/components/line-items-editor";
+import type { CatalogOption } from "@/lib/queries/catalog";
 import { saveInvoiceAction } from "./actions";
 
 const STATUS_ITEMS = [
   { value: "UNPAID", label: "Impayée" },
   { value: "PAID", label: "Payée" },
   { value: "OVERDUE", label: "En retard" },
-  { value: "CANCELLED", label: "Annulée" },
 ];
 
 function toDateInputValue(date?: Date | string | null) {
@@ -34,12 +34,14 @@ export function InvoiceDialog({
   clientId,
   vatEnabled,
   vatRate,
+  catalog,
   invoice,
 }: {
   trigger: ReactNode;
   clientId: string;
   vatEnabled: boolean;
   vatRate: number;
+  catalog: CatalogOption[];
   invoice?: {
     id: string;
     title: string | null;
@@ -93,7 +95,13 @@ export function InvoiceDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="invoice-status">Statut</Label>
-              <Select name="status" items={STATUS_ITEMS} defaultValue={invoice?.status ?? "UNPAID"}>
+              <Select
+                name="status"
+                items={STATUS_ITEMS}
+                defaultValue={
+                  STATUS_ITEMS.some((item) => item.value === invoice?.status) ? invoice!.status : "UNPAID"
+                }
+              >
                 <SelectTrigger id="invoice-status" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -121,7 +129,7 @@ export function InvoiceDialog({
               <Input id="invoice-dueDate" name="dueDate" type="date" defaultValue={toDateInputValue(invoice?.dueDate)} />
             </div>
 
-            <LineItemsEditor initialItems={initialItems} vatEnabled={vatEnabled} vatRate={vatRate} />
+            <LineItemsEditor initialItems={initialItems} vatEnabled={vatEnabled} vatRate={vatRate} catalog={catalog} />
 
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="invoice-notes">Notes</Label>

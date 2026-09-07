@@ -67,6 +67,13 @@ export async function updateBillingAction(formData: FormData) {
       paymentTerms: data.paymentTerms || null,
       vatEnabled: data.vatEnabled === "true",
       vatRate: Number(data.vatRate),
+      legalForm: data.legalForm || null,
+      shareCapital: data.shareCapital || null,
+      rcsCity: data.rcsCity || null,
+      latePenaltyText: data.latePenaltyText || null,
+      recoveryIndemnity: data.recoveryIndemnity,
+      discountTerms: data.discountTerms || null,
+      quoteValidityDays: data.quoteValidityDays,
     },
   });
 

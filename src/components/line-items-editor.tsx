@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrencyPrecise } from "@/lib/format";
+import type { CatalogOption } from "@/lib/queries/catalog";
 
 export type LineItemDraft = {
   description: string;
@@ -15,14 +16,20 @@ export type LineItemDraft = {
 
 const EMPTY_ROW: LineItemDraft = { description: "", quantity: "1", unitPrice: "" };
 
+function isBlankRow(row: LineItemDraft) {
+  return !row.description.trim() && !row.unitPrice.trim();
+}
+
 export function LineItemsEditor({
   initialItems,
   vatEnabled,
   vatRate,
+  catalog,
 }: {
   initialItems?: LineItemDraft[];
   vatEnabled: boolean;
   vatRate: number;
+  catalog?: CatalogOption[];
 }) {
   const [items, setItems] = useState<LineItemDraft[]>(
     initialItems && initialItems.length > 0 ? initialItems : [EMPTY_ROW],
@@ -35,6 +42,15 @@ export function LineItemsEditor({
 
   function addItem() {
     setItems((prev) => [...prev, { ...EMPTY_ROW }]);
+  }
+
+  function addFromCatalog(option: CatalogOption) {
+    const row: LineItemDraft = {
+      description: option.description ? `${option.label} — ${option.description}` : option.label,
+      quantity: "1",
+      unitPrice: String(option.unitPrice),
+    };
+    setItems((prev) => (prev.length === 1 && isBlankRow(prev[0]) ? [row] : [...prev, row]));
   }
 
   function removeItem(index: number) {
@@ -52,7 +68,31 @@ export function LineItemsEditor({
   return (
     <div className="space-y-3 sm:col-span-2">
       <input type="hidden" name="lineItems" value={JSON.stringify(items)} />
-      <Label>Lignes *</Label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Label>Lignes *</Label>
+        {catalog && catalog.length > 0 && (
+          <select
+            aria-label="Ajouter depuis le catalogue"
+            className="h-8 max-w-[16rem] rounded-lg border border-input bg-transparent px-2 text-sm text-muted-foreground"
+            value=""
+            onChange={(event) => {
+              const picked = catalog.find((option) => option.id === event.target.value);
+              if (picked) addFromCatalog(picked);
+              event.target.value = "";
+            }}
+          >
+            <option value="" disabled>
+              + Depuis le catalogue…
+            </option>
+            {catalog.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label} — {formatCurrencyPrecise(option.unitPrice)}
+                {option.unit ? ` / ${option.unit}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
       <div className="space-y-2">
         {items.map((item, index) => (
           <div key={index} className="grid grid-cols-[1fr_5rem_6rem_2rem] items-end gap-2">

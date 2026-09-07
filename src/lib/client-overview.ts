@@ -2,13 +2,16 @@ import { toNumber } from "@/lib/format";
 import type { ClientDetail } from "@/lib/queries/clients";
 
 export function computeClientFinancials(client: Pick<ClientDetail, "invoices">) {
-  const totalInvoiced = client.invoices.reduce((sum, i) => sum + toNumber(i.amount), 0);
-  const totalPaid = client.invoices
-    .filter((i) => i.status === "PAID")
+  const paidOn = (invoice: ClientDetail["invoices"][number]) =>
+    invoice.payments.reduce((sum, p) => sum + toNumber(p.amount), 0);
+
+  const totalInvoiced = client.invoices
+    .filter((i) => i.status !== "CANCELLED")
     .reduce((sum, i) => sum + toNumber(i.amount), 0);
+  const totalPaid = client.invoices.reduce((sum, i) => sum + paidOn(i), 0);
   const totalUnpaid = client.invoices
-    .filter((i) => i.status === "UNPAID" || i.status === "OVERDUE")
-    .reduce((sum, i) => sum + toNumber(i.amount), 0);
+    .filter((i) => i.status !== "CANCELLED" && i.status !== "CREDITED")
+    .reduce((sum, i) => sum + Math.max(0, toNumber(i.amount) - paidOn(i)), 0);
 
   return { totalInvoiced, totalPaid, totalUnpaid };
 }

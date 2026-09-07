@@ -18,8 +18,8 @@ export async function listClients(organizationId: string, query?: string) {
     },
     include: {
       invoices: {
-        where: { status: { in: ["UNPAID", "OVERDUE"] } },
-        select: { amount: true },
+        where: { status: { in: ["UNPAID", "OVERDUE", "PARTIAL"] } },
+        select: { amount: true, payments: { select: { amount: true } } },
       },
       quotes: {
         where: { status: "SENT" },
@@ -45,11 +45,19 @@ export async function getClientDetail(organizationId: string, clientId: string) 
     where: { id: clientId, organizationId },
     include: {
       invoices: {
-        include: { lineItems: { orderBy: { position: "asc" } } },
+        include: {
+          lineItems: { orderBy: { position: "asc" } },
+          payments: { orderBy: { receivedAt: "asc" } },
+          creditNotes: { orderBy: { issueDate: "asc" } },
+        },
         orderBy: { issueDate: "desc" },
       },
       quotes: {
         include: { invoice: true, lineItems: { orderBy: { position: "asc" } } },
+        orderBy: { issueDate: "desc" },
+      },
+      creditNotes: {
+        include: { invoice: { select: { number: true } }, lineItems: { orderBy: { position: "asc" } } },
         orderBy: { issueDate: "desc" },
       },
       activityLogs: { orderBy: { createdAt: "desc" }, take: 30, include: { user: true } },

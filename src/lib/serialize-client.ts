@@ -17,6 +17,14 @@ export function serializeClientDetail(client: ClientDetail) {
         quantity: toNumber(item.quantity),
         unitPrice: toNumber(item.unitPrice),
       })),
+      payments: invoice.payments.map((payment) => ({
+        ...payment,
+        amount: toNumber(payment.amount),
+      })),
+      creditNotes: invoice.creditNotes.map((creditNote) => ({
+        ...creditNote,
+        amount: toNumber(creditNote.amount),
+      })),
     })),
     quotes: client.quotes.map((quote) => ({
       ...quote,
@@ -27,6 +35,15 @@ export function serializeClientDetail(client: ClientDetail) {
         unitPrice: toNumber(item.unitPrice),
       })),
       invoice: quote.invoice ? { ...quote.invoice, amount: toNumber(quote.invoice.amount) } : null,
+    })),
+    creditNotes: client.creditNotes.map((creditNote) => ({
+      ...creditNote,
+      amount: toNumber(creditNote.amount),
+      lineItems: creditNote.lineItems.map((item) => ({
+        ...item,
+        quantity: toNumber(item.quantity),
+        unitPrice: toNumber(item.unitPrice),
+      })),
     })),
   };
 }

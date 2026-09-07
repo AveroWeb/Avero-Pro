@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { requireStaff } from "@/lib/session";
 import { listClientOptions } from "@/lib/queries/clients";
 import { getOrganizationBilling } from "@/lib/queries/organization";
+import { listCatalogItemOptions } from "@/lib/queries/catalog";
 import { InvoiceForm } from "../invoice-form";
 import { createInvoiceAction } from "../actions";
 
@@ -10,9 +11,10 @@ export const metadata: Metadata = { title: "Nouvelle facture — Avero Pro" };
 
 export default async function NewInvoicePage() {
   const user = await requireStaff();
-  const [clients, billing] = await Promise.all([
+  const [clients, billing, catalog] = await Promise.all([
     listClientOptions(user.organizationId),
     getOrganizationBilling(user.organizationId),
+    listCatalogItemOptions(user.organizationId),
   ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function NewInvoicePage() {
             clients={clients}
             vatEnabled={billing?.vatEnabled ?? true}
             vatRate={billing?.vatRate ?? 20}
+            catalog={catalog}
           />
         </CardContent>
       </Card>

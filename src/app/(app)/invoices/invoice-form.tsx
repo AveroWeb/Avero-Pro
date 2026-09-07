@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineItemsEditor } from "@/components/line-items-editor";
+import type { CatalogOption } from "@/lib/queries/catalog";
 
 const STATUS_ITEMS = [
   { value: "UNPAID", label: "Impayée" },
   { value: "PAID", label: "Payée" },
   { value: "OVERDUE", label: "En retard" },
-  { value: "CANCELLED", label: "Annulée" },
 ];
 
 type InvoiceFormAction = (prevState: string | undefined, formData: FormData) => Promise<string | undefined>;
@@ -22,11 +22,13 @@ export function InvoiceForm({
   clients,
   vatEnabled,
   vatRate,
+  catalog,
 }: {
   action: InvoiceFormAction;
   clients: { id: string; companyName: string }[];
   vatEnabled: boolean;
   vatRate: number;
+  catalog: CatalogOption[];
 }) {
   const [error, formAction, isPending] = useActionState(action, undefined);
   const clientItems = clients.map((c) => ({ value: c.id, label: c.companyName }));
@@ -77,7 +79,7 @@ export function InvoiceForm({
           <Input id="dueDate" name="dueDate" type="date" />
         </div>
 
-        <LineItemsEditor vatEnabled={vatEnabled} vatRate={vatRate} />
+        <LineItemsEditor vatEnabled={vatEnabled} vatRate={vatRate} catalog={catalog} />
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="notes">Notes</Label>

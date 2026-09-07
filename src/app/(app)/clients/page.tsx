@@ -71,7 +71,10 @@ export default async function ClientsPage({
                 </TableRow>
               ) : (
                 clients.map((client) => {
-                  const unpaid = client.invoices.reduce((sum, i) => sum + toNumber(i.amount), 0);
+                  const unpaid = client.invoices.reduce((sum, i) => {
+                    const paid = i.payments.reduce((s, p) => s + toNumber(p.amount), 0);
+                    return sum + Math.max(0, toNumber(i.amount) - paid);
+                  }, 0);
                   return (
                     <TableRow key={client.id}>
                       <TableCell>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { requireStaff } from "@/lib/session";
 import { getClientDetail } from "@/lib/queries/clients";
 import { getOrganizationBilling } from "@/lib/queries/organization";
+import { listCatalogItemOptions } from "@/lib/queries/catalog";
 import { StatusBadge, clientStatusMeta } from "@/components/status-badge";
 import { DeleteButton } from "@/components/delete-button";
 import { computeClientFinancials, computeClientTimeline } from "@/lib/client-overview";
@@ -32,9 +33,10 @@ export default async function ClientDetailPage({
 }) {
   const user = await requireStaff();
   const { id } = await params;
-  const [client, billing] = await Promise.all([
+  const [client, billing, catalog] = await Promise.all([
     getClientDetail(user.organizationId, id),
     getOrganizationBilling(user.organizationId),
+    listCatalogItemOptions(user.organizationId),
   ]);
   if (!client) notFound();
 
@@ -87,6 +89,7 @@ export default async function ClientDetailPage({
         financials={financials}
         vatEnabled={billing?.vatEnabled ?? true}
         vatRate={billing?.vatRate ?? 20}
+        catalog={catalog}
       />
     </div>
   );

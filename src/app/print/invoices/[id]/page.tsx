@@ -3,11 +3,14 @@ import { requireStaff } from "@/lib/session";
 import { getInvoice } from "@/lib/queries/invoices";
 import { formatCurrencyPrecise, formatDate, toNumber } from "@/lib/format";
 import { AutoPrint } from "@/components/auto-print";
+import { LegalFooter } from "@/components/print/legal-footer";
 
 const STATUS_LABELS: Record<string, string> = {
   PAID: "Payée",
+  PARTIAL: "Partiellement réglée",
   UNPAID: "Impayée",
   OVERDUE: "En retard",
+  CREDITED: "Soldée par avoir",
   CANCELLED: "Annulée",
 };
 
@@ -21,7 +24,7 @@ export default async function InvoicePrintPage({
   const invoice = await getInvoice(user.organizationId, id);
   if (!invoice) notFound();
 
-  const reference = `FAC-${invoice.id.slice(-6).toUpperCase()}`;
+  const reference = invoice.number;
   const org = invoice.organization;
   const vatRate = toNumber(org.vatRate);
   const title = invoice.title ?? invoice.quote?.title ?? null;
@@ -33,6 +36,8 @@ export default async function InvoicePrintPage({
   const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.quantity) * toNumber(item.unitPrice), 0);
   const vatAmount = org.vatEnabled ? subtotal * (vatRate / 100) : 0;
   const total = subtotal + vatAmount;
+  const paid = invoice.payments.reduce((sum, payment) => sum + toNumber(payment.amount), 0);
+  const remaining = Math.max(0, total - paid);
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-10 text-black print:p-0">
@@ -57,7 +62,7 @@ export default async function InvoicePrintPage({
         <div className="text-right">
           <p className="text-3xl font-bold tracking-tight">FACTURE</p>
           <p className="mt-1 text-sm text-black/60">N° {reference}</p>
-          {invoice.quote && <p className="text-xs text-black/50">Sur devis N° DEV-{invoice.quote.id.slice(-6).toUpperCase()}</p>}
+          {invoice.quote && <p className="text-xs text-black/50">Sur devis N° {invoice.quote.number}</p>}
         </div>
       </div>
 
@@ -139,8 +144,30 @@ export default async function InvoicePrintPage({
             <span>Total {org.vatEnabled ? "TTC" : ""}</span>
             <span>{formatCurrencyPrecise(total)}</span>
           </div>
+          {paid > 0 && (
+            <>
+              <div className="flex justify-between pt-1">
+                <span className="text-black/60">Déjà réglé</span>
+                <span>− {formatCurrencyPrecise(paid)}</span>
+              </div>
+              <div className="flex justify-between font-semibold">
+                <span>Reste à payer</span>
+                <span>{formatCurrencyPrecise(remaining)}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {invoice.creditNotes.length > 0 && (
+        <p className="mt-4 text-xs text-black/60">
+          Avoir(s) rattaché(s) :{" "}
+          {invoice.creditNotes
+            .map((creditNote) => `${creditNote.number} (${formatCurrencyPrecise(creditNote.amount)})`)
+            .join(", ")}
+          .
+        </p>
+      )}
 
       {invoice.notes && (
         <div className="mt-8 border-t border-black/10 pt-4">
@@ -154,6 +181,8 @@ export default async function InvoicePrintPage({
           <p className="whitespace-pre-wrap">{org.paymentTerms}</p>
         </div>
       )}
+
+      <LegalFooter org={org} variant="invoice" />
     </div>
   );
 }

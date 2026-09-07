@@ -75,6 +75,13 @@ export default async function SettingsPage() {
                 paymentTerms: organization?.paymentTerms ?? null,
                 vatEnabled: organization?.vatEnabled ?? true,
                 vatRate: organization ? Number(organization.vatRate) : 20,
+                legalForm: organization?.legalForm ?? null,
+                shareCapital: organization?.shareCapital ?? null,
+                rcsCity: organization?.rcsCity ?? null,
+                latePenaltyText: organization?.latePenaltyText ?? null,
+                recoveryIndemnity: organization ? Number(organization.recoveryIndemnity) : 40,
+                discountTerms: organization?.discountTerms ?? null,
+                quoteValidityDays: organization?.quoteValidityDays ?? 30,
               }}
             />
           </CardContent>

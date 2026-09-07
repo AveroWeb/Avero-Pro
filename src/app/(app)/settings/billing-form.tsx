@@ -20,6 +20,13 @@ type Billing = {
   paymentTerms: string | null;
   vatEnabled: boolean;
   vatRate: number;
+  legalForm: string | null;
+  shareCapital: string | null;
+  rcsCity: string | null;
+  latePenaltyText: string | null;
+  recoveryIndemnity: number;
+  discountTerms: string | null;
+  quoteValidityDays: number;
 };
 
 export function BillingForm({ billing }: { billing: Billing }) {
@@ -97,13 +104,72 @@ export function BillingForm({ billing }: { billing: Billing }) {
           <Input id="billing-bic" name="bic" defaultValue={billing.bic ?? ""} />
         </div>
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="billing-paymentTerms">Mentions légales / conditions de paiement</Label>
+          <Label htmlFor="billing-paymentTerms">Conditions de paiement (texte libre)</Label>
           <Textarea
             id="billing-paymentTerms"
             name="paymentTerms"
             rows={3}
             defaultValue={billing.paymentTerms ?? ""}
-            placeholder="Paiement à 30 jours. Pénalités de retard : 3 fois le taux d'intérêt légal. Indemnité forfaitaire de recouvrement : 40 €."
+            placeholder="Paiement à 30 jours par virement."
+          />
+        </div>
+
+        <div className="sm:col-span-2 border-t pt-4">
+          <p className="text-sm font-medium">Mentions légales obligatoires</p>
+          <p className="text-xs text-muted-foreground">
+            Reprises automatiquement en pied de page des devis, factures et avoirs.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-legalForm">Forme juridique</Label>
+          <Input id="billing-legalForm" name="legalForm" defaultValue={billing.legalForm ?? ""} placeholder="SARL, SAS, EI…" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-shareCapital">Capital social</Label>
+          <Input id="billing-shareCapital" name="shareCapital" defaultValue={billing.shareCapital ?? ""} placeholder="10 000 €" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-rcsCity">Ville du greffe (RCS)</Label>
+          <Input id="billing-rcsCity" name="rcsCity" defaultValue={billing.rcsCity ?? ""} placeholder="Paris" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-quoteValidityDays">Validité des devis (jours)</Label>
+          <Input
+            id="billing-quoteValidityDays"
+            name="quoteValidityDays"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={billing.quoteValidityDays}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-recoveryIndemnity">Indemnité de recouvrement (€)</Label>
+          <Input
+            id="billing-recoveryIndemnity"
+            name="recoveryIndemnity"
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={billing.recoveryIndemnity}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="billing-latePenaltyText">Taux des pénalités de retard</Label>
+          <Input
+            id="billing-latePenaltyText"
+            name="latePenaltyText"
+            defaultValue={billing.latePenaltyText ?? ""}
+            placeholder="3 fois le taux d'intérêt légal"
+          />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="billing-discountTerms">Conditions d&apos;escompte</Label>
+          <Input
+            id="billing-discountTerms"
+            name="discountTerms"
+            defaultValue={billing.discountTerms ?? ""}
+            placeholder="Pas d'escompte pour paiement anticipé."
           />
         </div>
       </div>
